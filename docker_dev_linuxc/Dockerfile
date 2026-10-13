@@ -1,0 +1,48 @@
+# GCC image 本質上是 開發者用來編譯程式碼的環境，它必須包含各種編譯器、標準函式庫、header、工具鏈 (build-essential) 等，所以體積大。
+# Ubuntu base image只是作為最小的作業系統環境 (但也不算非常極簡)。
+FROM ubuntu:22.04
+
+# 安裝 GCC + 工具 + 你原本需要的套件
+# GCC + G++ + make : cmake
+# ifconfig / route : net-tools
+# ip 指令 : iproute2
+# lsb_release : lsb-release
+RUN apt-get update && \
+    apt-get install -y \
+    build-essential \        
+    cmake \
+    gdb \
+    vim \
+    libmariadb-dev \
+    libpq-dev \
+    net-tools \             
+    iproute2 \              
+    lsb-release \           
+    && rm -rf /var/lib/apt/lists/*
+
+# 大多數精簡 image（例如 ubuntu:20.04、alpine、debian-slim）預設 沒有： /usr/share/zoneinfo/Asia/Taipei /etc/localtime  tzdata套件 
+# 所以 localtime() 仍然會使用 UTC
+# 在 Dockerfile 裡安裝 tzdata
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata && \
+    ln -fs /usr/share/zoneinfo/Asia/Taipei /etc/localtime && \
+    dpkg-reconfigure -f noninteractive tzdata
+
+# 建立工作區
+WORKDIR /app
+RUN mkdir -p /app/bin /app/build
+
+# 建立 super 使用者
+RUN useradd -ms /bin/bash super
+
+# 改變 /app 的擁有者，讓 super 有權限
+RUN chown -R super:super /app
+
+# 設定 root 密碼 (開發用途，不建議正式環境)
+RUN echo "root:sp-admin.8" | chpasswd
+
+# 預設使用 super
+USER super
+
+# 預設進入 bash
+CMD ["/bin/bash"]
